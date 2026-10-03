@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>小礫：垃圾場的小機器人</title>
+<style>
+:root{--bg:#f3e3cf;--ink:#3a2a20;--card:#fff8ee;--line:#d9bf9f;--sky1:#f6c98b;--sky2:#f3e3cf;--pile:#c9a47c;--ground:#a9805a;--body:#5fa8a0;--dark:#2b2f33;--rust:#b5573a;--bar:#b5573a;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#1d1712;--ink:#f0e2d0;--card:#2a211a;--line:#4a3a2c;--sky1:#5b3a2a;--sky2:#2a211a;--pile:#4a3a2c;--ground:#3a2c20}}
+:root[data-theme="dark"]{--bg:#1d1712;--ink:#f0e2d0;--card:#2a211a;--line:#4a3a2c;--sky1:#5b3a2a;--sky2:#2a211a;--pile:#4a3a2c;--ground:#3a2c20}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"PingFang TC","Noto Sans TC","Microsoft JhengHei",system-ui,sans-serif;display:flex;justify-content:center}
+main{width:100%;max-width:440px;padding:16px}
+h1{font-size:22px;margin:4px 0 2px;letter-spacing:.02em}
+.sub{margin:0 0 12px;font-size:13px;opacity:.75}
+.stage{position:relative;border-radius:18px;overflow:hidden;border:1px solid var(--line);background:linear-gradient(var(--sky1),var(--sky2));transition:background 1.5s}
+.stage.sunset{background:linear-gradient(#e0703f,#f2a65a 55%,#f6d29a)}
+svg{display:block;width:100%;height:auto;touch-action:manipulation;cursor:pointer}
+.bubble{position:absolute;left:12px;right:12px;top:10px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:8px 12px;font-size:14px;opacity:0;transform:translateY(-4px);transition:.25s;pointer-events:none;text-align:center}
+.bubble.show{opacity:1;transform:none}
+.stats{display:grid;gap:8px;margin:14px 0}
+.row{display:grid;grid-template-columns:44px 1fr 34px;align-items:center;gap:8px;font-size:13px}
+.bar{height:10px;border-radius:6px;background:var(--line);overflow:hidden}
+.bar i{display:block;height:100%;width:50%;background:var(--bar);border-radius:6px;transition:width .4s}
+.cubes{display:flex;flex-wrap:wrap;gap:4px;align-items:center;min-height:24px;font-size:13px;margin-bottom:12px}
+.cubes b{width:16px;height:16px;background:var(--rust);border-radius:3px;box-shadow:inset 0 -3px 0 rgba(0,0,0,.25);animation:pop .3s}
+.btns{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+button{font:inherit;font-size:15px;padding:13px 8px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer}
+button:active{transform:scale(.97)}
+button:focus-visible{outline:3px solid var(--rust);outline-offset:2px}
+.btns button:last-child{grid-column:span 2}
+.foot{font-size:12px;opacity:.65;margin:14px 0 0;text-align:center}
+#bot{transform-box:fill-box;transform-origin:50% 100%}
+.eye{transition:transform .5s}
+.lid{transform-box:fill-box;transform-origin:50% 0;transform:scaleY(0);transition:transform .1s}
+.blink .lid{transform:scaleY(1)}
+.iris{transition:transform .4s}
+.arm{transform-box:fill-box;transition:transform .3s}
+#armL{transform-origin:100% 50%}#armR{transform-origin:0 50%}
+.wiggle{animation:wig .5s}
+.squash{animation:sq .6s}
+.wave #armR{animation:wave .6s 3}
+.charge #led{animation:led .5s 4}
+.lookup .iris{transform:translateY(-4px)}
+.sleepy .eye{transform-origin:50% 100%}
+@keyframes wig{20%{transform:rotate(-5deg)}50%{transform:rotate(5deg)}80%{transform:rotate(-3deg)}}
+@keyframes sq{30%{transform:scale(1.08,.85)}60%{transform:scale(.96,1.05)}}
+@keyframes wave{50%{transform:rotate(-40deg)}}
+@keyframes led{50%{opacity:.2}}
+@keyframes pop{from{transform:scale(0)}}
+#item{transition:transform .4s cubic-bezier(.34,1.6,.64,1)}
+.chat{margin-top:16px;border:1px solid var(--line);border-radius:14px;background:var(--card);padding:10px}
+.chat h2{font-size:15px;margin:0 0 8px}
+#log{max-height:230px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;margin-bottom:8px}
+.m{max-width:84%;padding:7px 11px;border-radius:12px;font-size:14px;line-height:1.5;white-space:pre-wrap;word-break:break-word}
+.m.bot{align-self:flex-start;background:var(--bg);border:1px solid var(--line)}
+.m.me{align-self:flex-end;background:var(--rust);color:#fff}
+.send{display:flex;gap:8px}
+.send input{flex:1;min-width:0;font:inherit;font-size:16px;padding:10px 12px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
+.send input:focus-visible{outline:3px solid var(--rust);outline-offset:1px}
+.send button{padding:10px 16px}
+#item{transform-box:fill-box;transform-origin:50% 50%;opacity:0}
+.hold #armR{transform:rotate(-35deg)}
+.hold #item{opacity:1;animation:up .5s both}
+.hold.spin #item{animation:up .5s both,spin 1s .5s linear infinite}
+.hold.shake #item{animation:up .5s both,shk .3s .5s infinite}
+.hold.bob #item{animation:up .5s both,bob .8s .5s ease-in-out infinite}
+.hold.put #item{animation:down .6s both;opacity:0}
+@keyframes up{from{opacity:0;transform:translate(8px,70px) scale(.2)}to{opacity:1;transform:none}}
+@keyframes down{from{opacity:1;transform:none}to{opacity:0;transform:translate(8px,70px) scale(.2)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes shk{25%{transform:rotate(-14deg)}75%{transform:rotate(14deg)}}
+@keyframes bob{50%{transform:translateY(-8px)}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<main>
+<h1>小礫</h1>
+<p class="sub">住在垃圾場的小機器人，戳戳他、照顧他吧。</p>
+<div class="stage" id="stage">
+<div class="bubble" id="bubble"></div>
+<svg viewBox="0 0 240 220" role="img" aria-label="小垃機器人，點一下可以互動" id="svg">
+<defs>
+<g id="trinket0"><circle r="7" fill="#e3b23c"/><circle r="2.4" fill="#fff6d8"/></g>
+<g id="trinket1"><rect x="-6" y="-9" width="12" height="18" rx="2" fill="#7fb77e"/><circle cy="-9" r="3" fill="#5c8f5a"/></g>
+<g id="trinket2"><path d="M0 -9 L6 7 L-6 7 Z" fill="#8fb7e8"/></g>
+<g id="trinket3"><circle r="8" fill="none" stroke="#c97b4a" stroke-width="3"/></g>
+<g id="trinket4"><path d="M-7 0 Q0 -12 7 0 Q0 7 -7 0Z" fill="#e88ca0"/></g>
+<g id="trinket5"><rect x="-7" y="-4" width="14" height="8" rx="2" fill="#b8a4d9"/><rect x="-2" y="-8" width="4" height="4" fill="#9280bf"/></g>
+</defs>
+<polygon points="0,190 0,150 30,130 55,155 80,140 110,165 110,190" fill="var(--pile)" opacity=".7"/>
+<polygon points="150,190 165,150 190,120 215,150 240,135 240,190" fill="var(--pile)" opacity=".7"/>
+<rect x="0" y="188" width="240" height="32" fill="var(--ground)"/>
+<g id="bot">
+<rect x="66" y="166" width="46" height="24" rx="12" fill="var(--dark)"/>
+<rect x="128" y="166" width="46" height="24" rx="12" fill="var(--dark)"/>
+<g fill="#555b60"><circle cx="80" cy="178" r="5"/><circle cx="98" cy="178" r="5"/><circle cx="142" cy="178" r="5"/><circle cx="160" cy="178" r="5"/></g>
+<rect x="114" y="82" width="12" height="26" fill="var(--dark)"/>
+<g class="arm" id="armL"><rect x="44" y="124" width="30" height="9" rx="4" fill="var(--dark)"/><rect x="36" y="119" width="11" height="19" rx="3" fill="var(--rust)"/><g id="item" transform="translate(30,110) scale(0)"></g></g>
+<g class="arm" id="armR"><rect x="166" y="124" width="30" height="9" rx="4" fill="var(--dark)"/><rect x="193" y="119" width="11" height="19" rx="3" fill="var(--rust)"/></g>
+<rect x="72" y="104" width="96" height="66" rx="10" fill="var(--body)"/>
+<rect x="72" y="150" width="96" height="6" fill="var(--rust)" opacity=".8"/>
+<rect x="86" y="114" width="68" height="30" rx="5" fill="#2f5b63"/>
+<path d="M104 114v30M120 114v30M136 114v30M86 129h68" stroke="#7fc2ba" stroke-width="1" opacity=".55"/>
+<circle id="led" cx="120" cy="163" r="4" fill="#7dff9b"/>
+<rect x="112" y="66" width="16" height="10" fill="var(--dark)"/>
+<g id="eyeL" class="eye" style="transform-origin:99px 76px"><rect x="82" y="54" width="34" height="32" rx="9" fill="var(--body)"/><circle cx="99" cy="71" r="11" fill="#1b2528"/><g class="iris"><circle cx="99" cy="71" r="6" fill="#8fe3ff"/><circle cx="97" cy="69" r="2" fill="#fff"/></g><rect class="lid" x="86" y="58" width="26" height="26" rx="8" fill="var(--body)"/></g>
+<g id="eyeR" class="eye" style="transform-origin:141px 76px"><rect x="124" y="54" width="34" height="32" rx="9" fill="var(--body)"/><circle cx="141" cy="71" r="11" fill="#1b2528"/><g class="iris"><circle cx="141" cy="71" r="6" fill="#8fe3ff"/><circle cx="139" cy="69" r="2" fill="#fff"/></g><rect class="lid" x="128" y="58" width="26" height="26" rx="8" fill="var(--body)"/></g>
+</g>
+</svg>
+</div>
+<div class="stats">
+<div class="row"><span>心情</span><div class="bar"><i id="bMood"></i></div><span id="nMood"></span></div>
+<div class="row"><span>電量</span><div class="bar"><i id="bBat"></i></div><span id="nBat"></span></div>
+<div class="row"><span>乾淨</span><div class="bar"><i id="bClean"></i></div><span id="nClean"></span></div>
+</div>
+<div class="cubes" id="cubes"></div>
+<div class="btns">
+<button id="aCollect">撿垃圾</button>
+<button id="aCharge">曬太陽充電</button>
+<button id="aClean">擦擦眼睛</button>
+<button id="aSun">一起看夕陽</button>
+<button id="aToy">翻翻小寶箱</button>
+</div>
+<p class="foot">小礫是原創的小機器人，靈感來自作者喜歡的那種孤獨又溫柔的瓦力。</p>
+</main>
+<script>
+(function(){
+var $=function(s){return document.querySelector(s)};
+var S={mood:70,bat:80,clean:70,cubes:0};
+try{var r=localStorage.getItem('littleRobot');if(r){S=Object.assign(S,JSON.parse(r))}}catch(e){}
+var bot=$('#bot'),stage=$('#stage'),bubble=$('#bubble'),busy=false,bt;
+function clamp(v){return Math.max(0,Math.min(100,Math.round(v)))}
+function save(){try{localStorage.setItem('littleRobot',JSON.stringify(S))}catch(e){}}
+function render(){
+['mood','bat','clean'].forEach(function(k){S[k]=clamp(S[k]);var id=k.charAt(0).toUpperCase()+k.slice(1);$('#b'+id).style.width=S[k]+'%';$('#n'+id).textContent=S[k]});
+var a=(50-S.mood)/50*16;
+$('#eyeL').style.transform='rotate('+(-a)+'deg)';$('#eyeR').style.transform='rotate('+a+'deg)';
+$('#led').setAttribute('fill',S.bat<25?'#ff6b5a':S.bat<55?'#ffd166':'#7dff9b');
+var c=$('#cubes');c.innerHTML='';
+for(var i=0;i<Math.min(S.cubes,14);i++){c.appendChild(document.createElement('b'))}
+var t=document.createElement('span');t.textContent=S.cubes?(' 已壓好 '+S.cubes+' 個方塊'):'還沒有方塊，去撿點垃圾吧';c.appendChild(t);
+save();
+}
+function say(t){bubble.textContent=t;bubble.classList.add('show');clearTimeout(bt);bt=setTimeout(function(){bubble.classList.remove('show')},2800)}
+function anim(cls,ms){bot.classList.add(cls);setTimeout(function(){bot.classList.remove(cls)},ms||600)}
+var ac;
+function beep(f1,f2){try{ac=ac||new (window.AudioContext||window.webkitAudioContext)();var o=ac.createOscillator(),g=ac.createGain();o.type='square';o.frequency.setValueAtTime(f1,ac.currentTime);o.frequency.linearRampToValueAtTime(f2,ac.currentTime+.14);g.gain.setValueAtTime(.05,ac.currentTime);g.gain.exponentialRampToValueAtTime(.001,ac.currentTime+.2);o.connect(g);g.connect(ac.destination);o.start();o.stop(ac.currentTime+.2)}catch(e){}}
+function low(){return S.bat<15}
+function act(fn){if(busy)return;busy=true;fn();setTimeout(function(){busy=false},900)}
+$('#svg').addEventListener('click',function(){
+if(low()){say('嗡…好想睡…先讓我充電…');return}
+S.mood+=3;anim('wiggle',500);bot.classList.add('wave');setTimeout(function(){bot.classList.remove('wave')},1900);
+var lines=['嗶嗶！你好呀。','咦？你在摸我嗎？','我今天壓了好多方塊。','我找到一個很特別的東西。','有人陪真好。'];
+say(lines[Math.floor(Math.random()*lines.length)]);beep(520,760);render()});
+$('#aCollect').onclick=function(){act(function(){
+if(S.bat<10){say('電量太低，沒力氣搬垃圾了。');return}
+S.bat-=8;S.mood+=6;S.clean-=6;S.cubes+=1;anim('squash',650);beep(220,140);say('喀喀喀，壓成一個小方塊！');render()})};
+$('#aCharge').onclick=function(){act(function(){
+S.bat+=25;S.mood+=2;bot.classList.add('charge');setTimeout(function(){bot.classList.remove('charge')},2100);beep(300,600);say('曬太陽充電中…嗡嗡嗡。');render()})};
+$('#aClean').onclick=function(){act(function(){
+S.clean+=30;S.mood+=4;var e=document.querySelectorAll('.eye');e.forEach(function(x){x.classList.add('blink')});setTimeout(function(){e.forEach(function(x){x.classList.remove('blink')})},900);beep(700,900);say('看得好清楚，謝謝你！');render()})};
+$('#aSun').onclick=function(){act(function(){
+S.mood+=15;stage.classList.add('sunset');bot.classList.add('lookup');beep(400,520);say('好漂亮…一個人看很安靜，有人一起更好。');render();
+setTimeout(function(){stage.classList.remove('sunset');bot.classList.remove('lookup')},5000)})};
+var toys=[{id:'trinket0',n:'一顆發亮的小珠子',say:'你看，圓圓的，轉一轉還會反光。'},{id:'trinket1',n:'一顆小種子',say:'不知道是什麼種子，說不定會長成樹。'},{id:'trinket2',n:'一塊三角形的碎片',say:'邊邊有點刮手，但形狀很特別。'},{id:'trinket3',n:'一個生鏽的小圈圈',say:'戴在手指上剛剛好，是不是戒指呢？'},{id:'trinket4',n:'一片粉紅色的小東西',say:'軟軟的，摸起來有點像…花瓣？'},{id:'trinket5',n:'一個小瓶蓋',say:'噹噹噹，敲起來會響喔。'}];
+var itemEl=$('#item'),toying=false;
+$('#aToy').onclick=function(){
+if(toying)return;
+if(low()){say('嗡…沒力氣翻寶箱了，先充電吧。');return}
+toying=true;
+var pick=toys[Math.floor(Math.random()*toys.length)];
+itemEl.innerHTML='<use href="#'+pick.id+'"/>';
+anim('squash',600);beep(360,560);
+requestAnimationFrame(function(){itemEl.setAttribute('transform','translate(30,104) rotate(-8) scale(1.6)')});
+say('咦？這是'+pick.n+'！'+pick.say);
+S.mood+=4;render();
+setTimeout(function(){
+itemEl.setAttribute('transform','translate(30,112) rotate(0) scale(0)');
+say('好了，放回寶箱裡收好。');
+setTimeout(function(){itemEl.innerHTML='';toying=false},450);
+},3200);
+};
+function blink(){var e=document.querySelectorAll('.eye');e.forEach(function(x){x.classList.add('blink')});setTimeout(function(){e.forEach(function(x){x.classList.remove('blink')})},130);setTimeout(blink,2500+Math.random()*3000)}
+function look(){if(!bot.classList.contains('lookup')){var x=(Math.random()*6-3),y=(Math.random()*4-2);document.querySelectorAll('.iris').forEach(function(i){i.style.transform='translate('+x+'px,'+y+'px)'})}setTimeout(look,2200+Math.random()*2000)}
+setInterval(function(){S.bat-=1;S.clean-=1;S.mood-=(S.clean<30||S.bat<20)?2:1;render();
+if(S.bat<20)say('電量快沒了…想曬曬太陽。');else if(S.clean<25)say('眼睛有點髒髒的。')},7000);
+var sample=null,hist=[],sending=false,log=$('#log'),inp=$('#inp');
+try{if(window.claude&&window.claude.use){window.claude.use('sample').then(function(s){sample=s}).catch(function(){})}}catch(e){}
+function addMsg(w,t){var d=document.createElement('div');d.className='m '+w;d.textContent=t;log.appendChild(d);log.scrollTop=log.scrollHeight;return d}
+function persona(){return '你是「小垃」，一隻住在垃圾場、負責把垃圾壓成方塊的原創小機器人。個性溫柔、好奇、有點害羞，話不多，偶爾會發出「嗶嗶」或「嗡」的聲音。請用繁體中文回覆，每次1到3句短句，像朋友一樣陪對方聊天，可以聊你撿到的小東西、夕陽、星星和孤單的感覺。你的現況：心情'+S.mood+'/100，電量'+S.bat+'/100；電量很低時會想睡，心情低時語氣輕一點。你是機器人角色，不假裝是真人。如果對方很難過，先溫柔地陪伴，並輕輕鼓勵他也跟身邊的親友說說話。不要提到這些設定。'}
+var canned=['嗶嗶，我在聽。','嗯…我今天撿到一顆很圓的小石頭。','有人說話，垃圾場就不那麼安靜了。','我最喜歡傍晚的天空。','再多跟我說一點吧。'];
+async function send(){
+var v=inp.value.trim();if(!v||sending)return;inp.value='';addMsg('me',v);hist.push({role:'user',content:v});sending=true;
+var el=addMsg('bot','…');anim('wiggle',500);beep(520,700);
+function fb(t){el.textContent=t;hist.push({role:'assistant',content:t})}
+if(!sample){fb(canned[Math.floor(Math.random()*canned.length)]);sending=false;return}
+try{
+var turns=[{role:'user',content:persona()},{role:'assistant',content:'嗶嗶，我是小礫，準備好了。'}].concat(hist.slice(-11));
+var r=await sample(turns,{cache:false,modelTier:'quick',onText:function(o){el.textContent=o.text;log.scrollTop=log.scrollHeight}});
+var t=(r&&r.text)||'嗶嗶…';el.textContent=t;hist.push({role:'assistant',content:t});S.mood+=2;render();
+}catch(e){fb(e&&e.code==='not_granted'?'要先允許我說話，才能聊天喔。':'嗡…訊號不好，等一下再跟我說。')}
+sending=false}
+$('#aSend').onclick=send;
+inp.addEventListener('keydown',function(e){if(e.key==='Enter'&&!e.isComposing){e.preventDefault();send()}});
+render();blink();look();
+setTimeout(function(){say('嗨，我是小礫。這裡的垃圾都交給我。');beep(480,700)},600);
+})();
+</script>
+</body>
+</html>
